@@ -1,0 +1,19 @@
+#cloud-config
+package_update: true
+
+packages:
+  - java-1.8.0-openjdk-devel
+  - docker
+  - git
+  - epel
+
+runcmd:
+  - wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+  - rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+  - amazon-linux-extras install epel -y
+  - yum install jenkins -y
+  - usermod -a -G docker ec2-user
+  - systemctl daemon-reload
+  - systemctl enable --no-block docker
+  - systemctl start --no-block docker
+  - systemctl start --no-block jenkins
