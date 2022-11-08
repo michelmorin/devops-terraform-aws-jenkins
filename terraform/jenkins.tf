@@ -34,7 +34,7 @@ resource "aws_security_group" "ingress-efs" {
   }
 }
 # Jenkins Security Group
-resource "aws_security_group" "jenkins-sg" {
+resource "aws_security_group" "jenkins" {
   name        = "jenkins-sg"
   description = "security group that allows ssh and all egress traffic"
   vpc_id = data.aws_vpc.default.id
@@ -49,9 +49,6 @@ resource "aws_security_group" "jenkins-sg" {
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-  tags = {
-    Name = "jenkins-sg"
   }
 }
 
@@ -96,7 +93,7 @@ resource "aws_ecs_cluster" "main" {
   name = "Jenkins-cluster"
 }
 
-resource "aws_ecs_task_definition" "main" {
+resource "aws_ecs_task_definition" "jenkins" {
   family                   = "jenkins"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
@@ -161,13 +158,26 @@ resource "aws_iam_role" "ecs_task_execution_role" {
 }
 EOF
 }
+
+resource "aws_ecs_service" "jenkins" {
+  name            = "jenkins"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.jenkins.arn
+  desired_count   = 1
+  
+  deployment_minimum_healthy_percent = 100
+  deployment_maximum_percent         = 200
+  launch_type                        = "FARGATE"
+  scheduling_strategy                = "REPLICA"
+ 
+  network_configuration {
+   security_groups  = [aws_security_group.jenkins.id]
+   subnets          = data.aws_subnet_ids.default.ids
+   assign_public_ip = true
+  }
+}
  
 resource "aws_iam_role_policy_attachment" "ecs-task-execution-role-policy-attachment" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
-
-#output "jenkins_url" {
-#  value       = "http://${aws_instance.jenkins.public_ip}:8080"
-#  description = "The host address of jenkins server"
-#}
